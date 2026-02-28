@@ -1,60 +1,45 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-from config import PORT
 from routes.chat import handle_chat
-from routes.memory import handle_memory
-from routes.health import handle_health
-from security.auth import verify_api_key
-from security.rate_limit import check_rate_limit
+from core.config import PORT, API_SECRET
 
-class EDITHServer(BaseHTTPRequestHandler):
-
-    def _set_headers(self, status=200):
-        self.send_response(status)
-        self.send_header("Content-type", "application/json")
-        self.end_headers()
+class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
-        if not verify_api_key(self.headers):
-            self._set_headers(401)
-            self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+        if self.path != "/chat":
+            self.send_response(404)
+            self.end_headers()
             return
 
-        if not check_rate_limit(self.client_address[0]):
-            self._set_headers(429)
-            self.wfile.write(json.dumps({"error": "Too many requests"}).encode())
-            return
-
-        content_length = int(self.headers['Content-Length'])
+        content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
-        data = json.loads(body)
 
-        if self.path == "/chat":
+        try:
+            data = json.loads(body)
+
+            # API key validation
+            api_key = self.headers.get("X-API-KEY")
+            if api_key != API_SECRET:
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b'{"response": "Unauthorized"}')
+                return
+
             response = handle_chat(data)
-        elif self.path == "/memory":
-            response = handle_memory(data)
-        else:
-            response = {"error": "Invalid endpoint"}
 
-        self._set_headers()
-        self.wfile.write(json.dumps(response).encode())
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
 
-    def do_GET(self):
-        if self.path == "/health":
-            self._set_headers()
-            self.wfile.write(json.dumps(handle_health()).encode())
-
-def run():
-    server_address = ('', PORT)
-    httpd = HTTPServer(server_address, EDITHServer)
-    print(f"EDITH running on port {PORT}")
-    httpd.serve_forever()
+        except Exception as e:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(
+                json.dumps({"response": f"Server error: {str(e)}"}).encode()
+            )
 
 if __name__ == "__main__":
-    run()
-
-server = HTTPServer(("0.0.0.0", PORT), Handler)
-
-if __name__ == "__main__":
-    print(f"Starting server on port {PORT}")
+    server = HTTPServer(("0.0.0.0", PORT), Handler)
+    print(f"Server running on port {PORT}")
     server.serve_forever()
