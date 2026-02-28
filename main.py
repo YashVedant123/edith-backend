@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 from routes.chat import handle_chat
-from backend.config import PORT, API_SECRET
+from config import PORT, API_SECRET
 
 class Handler(BaseHTTPRequestHandler):
 
