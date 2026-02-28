@@ -1,7 +1,8 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 from routes.chat import handle_chat
-from config import PORT, API_SECRET
+
+API_SECRET = os.getenv("API_SECRET", "edith-secret")
 
 class Handler(BaseHTTPRequestHandler):
 
