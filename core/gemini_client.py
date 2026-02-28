@@ -36,4 +36,4 @@ User Message:
         return response.text
     except Exception as e:
         print("Gemini API error:", e)
-        return "I'm having trouble processing that."
+        return f"Error: {str(e)}"
